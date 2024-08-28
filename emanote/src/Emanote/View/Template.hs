@@ -39,6 +39,11 @@ import Relude
 import Text.Blaze.Renderer.XmlHtml qualified as RX
 import Text.Pandoc.Builder qualified as B
 import Text.Pandoc.Definition (Pandoc (..))
+import System.FilePath (takeDirectory)
+import Data.Maybe (fromMaybe)
+-- import Control.Lens ((^.))
+import qualified Data.Text as T
+import qualified System.FilePath as FP
 
 emanoteSiteOutput :: (MonadIO m, MonadLoggerIO m) => Prism' FilePath SiteRoute -> ModelEma -> SR.SiteRoute -> m (Ema.Asset LByteString)
 emanoteSiteOutput rp model' r = do
@@ -145,13 +150,22 @@ patchMeta meta =
   where
     siteUrl = SData.lookupAeson @Text "" ("page" :| ["siteUrl"]) meta
 
-renderLmlHtml :: Model -> MN.Note -> LByteString
+getSourceDir :: MN.Note -> R.LMLRoute -> FilePath
+getSourceDir note r = FP.takeDirectory $ T.unpack sourcePath
+  where
+    sourcePath = fromMaybe defaultPath $ do
+        (_, path) <- note ^. MN.noteSource
+        return $ T.pack path
+    defaultPath = T.pack $ R.withLmlRoute R.encodeRoute r
+
+renderLmlHtml :: M.Model -> MN.Note -> LByteString
 renderLmlHtml model note = do
   let r = note ^. MN.noteRoute
       meta = patchMeta $ Meta.getEffectiveRouteMetaWith (note ^. MN.noteMeta) r model
       toc = newToc $ note ^. MN.noteDoc
       sourcePath = fromMaybe (R.withLmlRoute R.encodeRoute r) $ do
         fmap snd $ note ^. MN.noteSource
+      sourceDir = getSourceDir note r
       -- Force a doctype into the generated HTML as a workaround for Heist
       -- discarding it. See: https://github.com/srid/emanote/issues/216
       withDoctype = ("<!DOCTYPE html>\n" <>)
@@ -177,6 +191,9 @@ renderLmlHtml model note = do
     "ema:note:source-path" ##
       HI.textSplice
         $ toText sourcePath
+    "ema:note:source-dir" ##
+      HI.textSplice
+        $ toText sourceDir
     "ema:note:url" ##
       HI.textSplice (SR.siteRouteUrl model . SR.lmlSiteRoute $ (R.LMLView_Html, r))
     "emaNoteFeedUrl" ##
