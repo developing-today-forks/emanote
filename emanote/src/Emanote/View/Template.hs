@@ -166,6 +166,7 @@ renderLmlHtml model note = do
       sourcePath = fromMaybe (R.withLmlRoute R.encodeRoute r) $ do
         fmap snd $ note ^. MN.noteSource
       sourceDir = getSourceDir note r
+      sourceFileBase = FP.dropExtension $ T.unpack sourcePath
       -- Force a doctype into the generated HTML as a workaround for Heist
       -- discarding it. See: https://github.com/srid/emanote/issues/216
       withDoctype = ("<!DOCTYPE html>\n" <>)
@@ -194,6 +195,9 @@ renderLmlHtml model note = do
     "ema:note:source-dir" ##
       HI.textSplice
         $ toText sourceDir
+    "ema:note:source-file-base" ##
+      HI.textSplice
+        $ toText sourceFileBase
     "ema:note:url" ##
       HI.textSplice (SR.siteRouteUrl model . SR.lmlSiteRoute $ (R.LMLView_Html, r))
     "emaNoteFeedUrl" ##
