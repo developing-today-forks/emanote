@@ -260,7 +260,7 @@ routeTreeSplices tCtx mCurrentRoute model = do
         let shortTitle = Meta.lookupRouteMeta @(Maybe Text) Nothing ("short-title" :| []) nodeRoute model
         "node:text" ## maybe (C.titleSplice tCtx $ M.modelLookupTitle nodeRoute model) HI.textSplice shortTitle
         "node:url" ## HI.textSplice $ SR.siteRouteUrl model $ SR.lmlSiteRoute (R.LMLView_Html, nodeRoute)
-        "node:route" ## HI.textSplice $ R.unLMLRoute nodeRoute
+        "node:route" ## HI.textSplice $ T.pack $ show nodeRoute
         let isActiveNode = Just nodeRoute == mCurrentRoute
             isActiveTree =
               -- Active tree checking is applicable only when there is an
