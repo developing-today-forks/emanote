@@ -6,7 +6,6 @@ import Data.List (partition)
 import Data.Map.Syntax ((##))
 import Data.Maybe (fromMaybe)
 import Data.Set qualified as Set
--- import Control.Lens ((^.))
 import Data.Text qualified as T
 import Data.Tree qualified as Tree
 import Ema qualified
@@ -38,7 +37,6 @@ import Heist.Splices qualified as Heist
 import Optics.Core (Prism', review)
 import Optics.Operators ((.~), (^.))
 import Relude
-import System.FilePath (takeDirectory)
 import System.FilePath qualified as FP
 import Text.Blaze.Renderer.XmlHtml qualified as RX
 import Text.Pandoc.Builder qualified as B
@@ -157,6 +155,11 @@ getSourceDir note r = FP.takeDirectory $ T.unpack sourcePath
       return $ T.pack path
     defaultPath = T.pack $ R.withLmlRoute R.encodeRoute r
 
+trimEnd :: Text -> Text
+trimEnd = T.dropWhileEnd (== '/') . stripIndex . T.dropWhileEnd (== '/')
+  where
+    stripIndex t = fromMaybe t (T.stripSuffix "/index" t)
+
 renderLmlHtml :: M.Model -> MN.Note -> LByteString
 renderLmlHtml model note = do
   let r = note ^. MN.noteRoute
@@ -195,10 +198,7 @@ renderLmlHtml model note = do
         $ toText sourceDir
     "ema:note:source-file-base" ##
       HI.textSplice
-        $ let baseText = toText sourceFileBase
-           in if baseText == "index"
-                then mempty
-                else baseText
+        $ toText (if sourceFileBase == "index" then "" else trimEnd sourceFileBase)
     "ema:note:url" ##
       HI.textSplice (SR.siteRouteUrl model . SR.lmlSiteRoute $ (R.LMLView_Html, r))
     "emaNoteFeedUrl" ##
@@ -251,7 +251,6 @@ backlinksSplice model (bs :: [(R.LMLRoute, NonEmpty [B.Block])]) =
                   Splices.pandocSplice ctx' ctxDoc
 
 -- | Heist splice for the sidebar tree.
---
 -- If there is no 'current route', all sub-trees are marked as active/open.
 routeTreeSplices :: (Monad n) => C.TemplateRenderCtx n -> Maybe R.LMLRoute -> Model -> H.Splices (HI.Splice Identity)
 routeTreeSplices tCtx mCurrentRoute model = do
@@ -261,7 +260,7 @@ routeTreeSplices tCtx mCurrentRoute model = do
         let shortTitle = Meta.lookupRouteMeta @(Maybe Text) Nothing ("short-title" :| []) nodeRoute model
         "node:text" ## maybe (C.titleSplice tCtx $ M.modelLookupTitle nodeRoute model) HI.textSplice shortTitle
         "node:url" ## HI.textSplice $ SR.siteRouteUrl model $ SR.lmlSiteRoute (R.LMLView_Html, nodeRoute)
-        "node:route" ## HI.textSplice $ T.pack $ show nodeRoute
+        "node:route" ## HI.textSplice $ T.pack $ R.withLmlRoute R.encodeRoute nodeRoute
         "node:source-file-base" ##
           HI.textSplice $ T.pack $ FP.dropExtension $ fromMaybe (R.withLmlRoute R.encodeRoute nodeRoute) $ do
             note <- M.modelLookupNoteByRoute' nodeRoute model
