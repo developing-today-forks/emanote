@@ -195,7 +195,10 @@ renderLmlHtml model note = do
         $ toText sourceDir
     "ema:note:source-file-base" ##
       HI.textSplice
-        $ toText (if sourceFileBase == "index" then "" else sourceFileBase)
+        $ let baseText = toText sourceFileBase
+           in if baseText == "index"
+                then mempty
+                else baseText
     "ema:note:url" ##
       HI.textSplice (SR.siteRouteUrl model . SR.lmlSiteRoute $ (R.LMLView_Html, r))
     "emaNoteFeedUrl" ##
