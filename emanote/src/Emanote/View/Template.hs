@@ -4,7 +4,9 @@ import Control.Monad.Logger (MonadLoggerIO)
 import Data.Aeson.Types qualified as Aeson
 import Data.List (partition)
 import Data.Map.Syntax ((##))
+import Data.Maybe (fromMaybe)
 import Data.Set qualified as Set
+-- import Control.Lens ((^.))
 import Data.Text qualified as T
 import Data.Tree qualified as Tree
 import Ema qualified
@@ -36,14 +38,11 @@ import Heist.Splices qualified as Heist
 import Optics.Core (Prism', review)
 import Optics.Operators ((.~), (^.))
 import Relude
+import System.FilePath (takeDirectory)
+import System.FilePath qualified as FP
 import Text.Blaze.Renderer.XmlHtml qualified as RX
 import Text.Pandoc.Builder qualified as B
 import Text.Pandoc.Definition (Pandoc (..))
-import System.FilePath (takeDirectory)
-import Data.Maybe (fromMaybe)
--- import Control.Lens ((^.))
-import qualified Data.Text as T
-import qualified System.FilePath as FP
 
 emanoteSiteOutput :: (MonadIO m, MonadLoggerIO m) => Prism' FilePath SiteRoute -> ModelEma -> SR.SiteRoute -> m (Ema.Asset LByteString)
 emanoteSiteOutput rp model' r = do
@@ -154,8 +153,8 @@ getSourceDir :: MN.Note -> R.LMLRoute -> FilePath
 getSourceDir note r = FP.takeDirectory $ T.unpack sourcePath
   where
     sourcePath = fromMaybe defaultPath $ do
-        (_, path) <- note ^. MN.noteSource
-        return $ T.pack path
+      (_, path) <- note ^. MN.noteSource
+      return $ T.pack path
     defaultPath = T.pack $ R.withLmlRoute R.encodeRoute r
 
 renderLmlHtml :: M.Model -> MN.Note -> LByteString
@@ -196,7 +195,7 @@ renderLmlHtml model note = do
         $ toText sourceDir
     "ema:note:source-file-base" ##
       HI.textSplice
-        $ toText sourceFileBase
+        $ toText (if sourceFileBase == "index" then "" else sourceFileBase)
     "ema:note:url" ##
       HI.textSplice (SR.siteRouteUrl model . SR.lmlSiteRoute $ (R.LMLView_Html, r))
     "emaNoteFeedUrl" ##
@@ -248,10 +247,9 @@ backlinksSplice model (bs :: [(R.LMLRoute, NonEmpty [B.Block])]) =
                 $ \ctx' ->
                   Splices.pandocSplice ctx' ctxDoc
 
-{- | Heist splice for the sidebar tree.
-
-If there is no 'current route', all sub-trees are marked as active/open.
--}
+-- | Heist splice for the sidebar tree.
+--
+-- If there is no 'current route', all sub-trees are marked as active/open.
 routeTreeSplices :: (Monad n) => C.TemplateRenderCtx n -> Maybe R.LMLRoute -> Model -> H.Splices (HI.Splice Identity)
 routeTreeSplices tCtx mCurrentRoute model = do
   "ema:route-tree" ##
@@ -261,6 +259,10 @@ routeTreeSplices tCtx mCurrentRoute model = do
         "node:text" ## maybe (C.titleSplice tCtx $ M.modelLookupTitle nodeRoute model) HI.textSplice shortTitle
         "node:url" ## HI.textSplice $ SR.siteRouteUrl model $ SR.lmlSiteRoute (R.LMLView_Html, nodeRoute)
         "node:route" ## HI.textSplice $ T.pack $ show nodeRoute
+        "node:source-file-base" ##
+          HI.textSplice $ T.pack $ FP.dropExtension $ fromMaybe (R.withLmlRoute R.encodeRoute nodeRoute) $ do
+            note <- M.modelLookupNoteByRoute' nodeRoute model
+            fmap snd $ note ^. MN.noteSource
         let isActiveNode = Just nodeRoute == mCurrentRoute
             isActiveTree =
               -- Active tree checking is applicable only when there is an
@@ -286,9 +288,9 @@ routeTreeSplices tCtx mCurrentRoute model = do
       let tr = last path
           isLeaf = null children
           priority = if getFoldersFirst tr && isLeaf then 1 else 0 :: Int
-       in ( priority
-          , Meta.lookupRouteMeta @Int 0 (one "order") tr model
-          , tr
+       in ( priority,
+            Meta.lookupRouteMeta @Int 0 (one "order") tr model,
+            tr
           )
     getCollapsed tr =
       Meta.lookupRouteMeta @Bool True ("template" :| ["sidebar", "collapsed"]) tr model
