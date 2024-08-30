@@ -192,7 +192,8 @@ renderLmlHtml model note = do
     "ema:note:title" ##
       C.titleSplice ctx (note ^. MN.noteTitle)
     "ema:note:source-path" ##
-      HI.textSplice $ T.pack sourcePath
+      HI.textSplice
+        $ toText sourcePath
     "ema:note:source-dir" ##
       HI.textSplice
         $ toText sourceDir
