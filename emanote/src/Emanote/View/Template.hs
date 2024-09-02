@@ -263,7 +263,7 @@ routeTreeSplices tCtx mCurrentRoute model = do
         "node:url" ## HI.textSplice $ SR.siteRouteUrl model $ SR.lmlSiteRoute (R.LMLView_Html, nodeRoute)
         "node:route" ## HI.textSplice $ T.pack $ R.withLmlRoute R.encodeRoute nodeRoute
         "node:source-file-base" ##
-          HI.textSplice $ T.pack $ FP.dropExtension $ fromMaybe (R.withLmlRoute R.encodeRoute nodeRoute) $ do
+          HI.textSplice $ trimEnd $ T.pack $ FP.dropExtension $ fromMaybe (R.withLmlRoute R.encodeRoute nodeRoute) $ do
             note <- M.modelLookupNoteByRoute' nodeRoute model
             fmap snd $ note ^. MN.noteSource
         let isActiveNode = Just nodeRoute == mCurrentRoute
