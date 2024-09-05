@@ -291,8 +291,8 @@ routeTreeSplices tCtx mCurrentRoute model = do
       let tr = last path
           isLeaf = null children
           priority = if getFoldersFirst tr && isLeaf then 1 else 0 :: Int
-       in ( negate priority,
-            negate $ Meta.lookupRouteMeta @Int 0 (one "order") tr model,
+       in ( priority,
+            Meta.lookupRouteMeta @Int 0 (one "order") tr model,
             tr
           )
     getCollapsed tr =
